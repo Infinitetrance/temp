@@ -1,0 +1,32 @@
+---
+
+Proposal for Standardized Task Allocation Guidelines
+
+I would like to propose a structured approach for allocating new development tasks across our combined onshore and offshore team. The intent is to ensure balanced utilization, maintain code quality, and streamline accountability.
+
+**Draft Guidelines for Consideration**
+
+1. **Balanced allocation:** Development tasks should be distributed in a round-robin manner so that each developer consistently receives opportunities. Over successive cycles, this avoids concentration of work in one group and ensures fair exposure for everyone.
+
+2. **Single ownership:** As per Scrum practice, a Jira story is intended to have a single assignee responsible for delivering it end to end (from design and coding to unit testing, QA handoff, and release readiness). Jira itself enforces this by allowing only one assignee per story. Shared ownership should be avoided, as it dilutes accountability and increases the risk of production defects when context is split between multiple developers.
+
+3. **Handling complex work:** If a requirement is genuinely large or complex, it should be decomposed into multiple Jira stories or subtasks, each assigned to an individual developer. This way, parallel progress is possible while still preserving single-developer accountability per Jira.
+
+4. **Application coverage:** To reduce dependency risks, task assignments should rotate across applications. Over time, multiple developers will gain familiarity with each application, allowing smoother coverage during absences and broader knowledge distribution.
+
+5. **Leadership-driven assignment:** Allocation should be done centrally (by lead/manager), not on a first-come first-served basis. This prevents time-zone or proximity advantages and ensures equitable distribution.
+
+**Expected Benefits**
+
+* More balanced workload across the team
+* Higher code quality, since work is not rushed or overloaded
+* Clear accountability per story, reducing ambiguity in ownership
+* Lower probability of production defects caused by fragmented context or mid-stream task switching
+* Broader skill distribution across applications
+* Better organizational ROI, as both onshore and offshore capacity are effectively utilized
+
+This outline reflects my current understanding of how we can strengthen our delivery process. Of course, you may refine, adapt, or approach this differently. I would like to hear your perspective — whether you agree, disagree, or see other benefits in the current model — along with the reasoning behind it, so the team can better understand the rationale and align on the best approach.
+
+Thank you for your attention to this matter.
+---
+
