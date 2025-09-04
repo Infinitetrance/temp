@@ -1,5 +1,4 @@
 ---
-
 Proposal for Standardized Task Allocation Guidelines
 
 I would like to propose a structured approach for allocating new development tasks across our combined onshore and offshore team. The intent is to ensure balanced utilization, maintain code quality, and streamline accountability.
@@ -12,9 +11,17 @@ I would like to propose a structured approach for allocating new development tas
 
 3. **Handling complex work:** If a requirement is genuinely large or complex, it should be decomposed into multiple Jira stories or subtasks, each assigned to an individual developer. This way, parallel progress is possible while still preserving single-developer accountability per Jira.
 
-4. **Application coverage:** To reduce dependency risks, task assignments should rotate across applications. Over time, multiple developers will gain familiarity with each application, allowing smoother coverage during absences and broader knowledge distribution.
+4. **Jira-first approach:** A Jira should always be created before any implementation begins. Development work should not start without a corresponding Jira, since the Jira represents the official requirement. This also ensures that relevant Jira IDs can be linked in commit messages and tracked properly.
 
-5. **Leadership-driven assignment:** Allocation should be done centrally (by lead/manager), not on a first-come first-served basis. This prevents time-zone or proximity advantages and ensures equitable distribution.
+5. **Code-to-Jira traceability:** Each commit pushed to Bitbucket should include the relevant Jira ID in the commit message. This allows anyone to trace a code change directly back to its requirement. While Bitbucket enforces a Jira ID check, developers should not insert unrelated or random Jira IDs to bypass the hook. If a Jira does not yet exist for a piece of work, it should be created first before the commit proceeds.
+
+6. **Attaching requirement context:** Developers should attach all requirement-related documents and email communications to the Jira. Since a large part of requirement clarification happens over email and not everyone is always included in those threads, capturing these attachments in Jira ensures the full context is preserved for future reference.
+
+7. **Release documentation linkage:** For every release, the CRQ Handover Documents (including IPLAN and Handover Documents) stored in SharePoint should be linked in the corresponding Jira. This provides end-to-end traceability from requirement (Jira), to implementation (code), to deployment (handover documentation).
+
+8. **Application coverage:** To reduce dependency risks, task assignments should rotate across applications. Over time, multiple developers will gain familiarity with each application, allowing smoother coverage during absences and broader knowledge distribution.
+
+9. **Leadership-driven assignment:** Allocation should be done centrally (by lead/BA), not on a first-come first-served basis. This prevents time-zone or proximity advantages and ensures equitable distribution. Developers should also not self-assign new work opportunities, as that prevents equal visibility and fair distribution across the team.
 
 **Expected Benefits**
 
@@ -22,6 +29,7 @@ I would like to propose a structured approach for allocating new development tas
 * Higher code quality, since work is not rushed or overloaded
 * Clear accountability per story, reducing ambiguity in ownership
 * Lower probability of production defects caused by fragmented context or mid-stream task switching
+* End-to-end traceability from requirements to code commits to release documentation
 * Broader skill distribution across applications
 * Better organizational ROI, as both onshore and offshore capacity are effectively utilized
 
@@ -29,4 +37,3 @@ This outline reflects my current understanding of how we can strengthen our deli
 
 Thank you for your attention to this matter.
 ---
-
