@@ -1,164 +1,76 @@
-<#
-.SYNOPSIS
-  Clone multiple repos (bare), extract git logs, and combine into one CSV prefixed with repo name.
+# --- CONFIGURATION ---
+# The name of the file containing your repository URLs.
+$repoListFile = "repos.txt"
+# The name of the final output file that will contain all logs.
+$outputFile = "combined_git_logs.txt"
+# The name of the temporary directory for cloning. It will be created and deleted automatically.
+$tempCloneDir = "temp_repo"
 
-.USAGE
-  # From file containing URLs (one per line):
-  .\Collect-GitLogsFromUrls.ps1 -UrlsFile .\repos.txt
 
-  # Or pass URLs on the command line:
-  .\Collect-GitLogsFromUrls.ps1 -Urls "https://host/repo1.git","https://host/repo2.git"
+# --- SCRIPT START ---
+Write-Host "🚀 Starting git log collection..." -ForegroundColor Green
 
-.PARAMETER UrlsFile
-  Path to a text file containing clone URLs, one per line. Lines starting with '#' or empty lines are ignored.
-
-.PARAMETER Urls
-  Array of clone URLs provided directly.
-
-.PARAMETER OutFile
-  Output CSV path. Default: .\all-repos-commits.csv
-
-.PARAMETER ShallowDepth
-  If set to an integer (e.g. 100), uses --depth to do shallow clones (faster).
-
-.PARAMETER FetchFirst
-  If $true (default), fetch after clone to ensure refs are up-to-date.
-
-.NOTES
-  - For private repos, ensure your git credentials/ssh keys are configured.
-  - This script uses the commit subject (%s) — single-line. If you need full body with multiline escaping, ask and I'll extend it.
-#>
-
-param(
-  [string]$UrlsFile = "",
-  [string[]]$Urls = @(),
-  [string]$OutFile = (Join-Path (Get-Location) "all-repos-commits.csv"),
-  [int]$ShallowDepth = 0,
-  [switch]$NoFetch
-)
-
-# Validate input
-if (($UrlsFile -eq "") -and ($Urls.Count -eq 0)) {
-  Write-Host "Provide a -UrlsFile path or a list of -Urls. Example:"
-  Write-Host "  .\Collect-GitLogsFromUrls.ps1 -UrlsFile .\repos.txt"
-  Write-Host "  .\Collect-GitLogsFromUrls.ps1 -Urls 'https://..repo1.git','https://..repo2.git'"
-  exit 1
+# Clear the output file from previous runs to start fresh.
+if (Test-Path $outputFile) {
+    Clear-Content $outputFile
 }
 
-# Read URLs from file if provided
-if ($UrlsFile -ne "") {
-  if (-not (Test-Path $UrlsFile)) {
-    Write-Error "UrlsFile not found: $UrlsFile"
-    exit 1
-  }
-  $fileUrls = Get-Content -Raw -Path $UrlsFile -ErrorAction Stop |
-              -split "`r?`n" |
-              ForEach-Object { $_.Trim() } |
-              Where-Object { $_ -and -not ($_.StartsWith('#')) }
-  $Urls = $fileUrls + $Urls
+# Check if the list of repos exists.
+if (-not (Test-Path $repoListFile)) {
+    Write-Host "❌ Error: The file '$repoListFile' was not found. Please create it and add your repo URLs." -ForegroundColor Red
+    # Pause the script to show the error message before closing.
+    Read-Host "Press Enter to exit"
+    exit
 }
 
-if ($Urls.Count -eq 0) {
-  Write-Error "No URLs to process."
-  exit 1
-}
+# Read each repository URL from the file.
+Get-Content $repoListFile | ForEach-Object {
+    # The current URL from the file.
+    $repoUrl = $_.Trim()
 
-# Prepare temp folder
-$TempRoot = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath ("collect-gitlogs-{0}" -f ([System.Guid]::NewGuid()))
-New-Item -Path $TempRoot -ItemType Directory | Out-Null
-
-# Prepare output CSV (header)
-'"repo","commit","author","date","message"' | Out-File -FilePath $OutFile -Encoding UTF8 -Force
-
-try {
-  foreach ($url in $Urls) {
-    # normalize and skip empty lines
-    if (-not $url) { continue }
-
-    # derive repo name from URL (strip trailing .git if present)
-    $repoBase = [System.IO.Path]::GetFileName($url)
-    if ($repoBase -like "*.git") { $repoBase = $repoBase.Substring(0, $repoBase.Length - 4) }
-    $repoName = $repoBase
-
-    Write-Host "Processing: $repoName"
-
-    $repoTemp = Join-Path $TempRoot ("{0}.git" -f $repoName)
-
-    # Build clone args
-    $cloneArgs = @("clone","--bare")
-    if ($ShallowDepth -gt 0) {
-      $cloneArgs += @("--depth",$ShallowDepth.ToString())
+    # Skip any blank lines in the input file.
+    if ([string]::IsNullOrWhiteSpace($repoUrl)) {
+        return
     }
-    $cloneArgs += @($url, $repoTemp)
 
-    # Clone
     try {
-      $proc = Start-Process -FilePath git -ArgumentList $cloneArgs -NoNewWindow -PassThru -Wait -WindowStyle Hidden
-      if ($proc.ExitCode -ne 0) {
-        Write-Warning "git clone failed for $repoName (exit $($proc.ExitCode)). Skipping."
-        continue
-      }
-    } catch {
-      Write-Warning "git clone error for $repoName: $_. Exception"
-      continue
-    }
+        # Extract a clean repository name from the URL.
+        # It takes the last part of the URL and removes the '.git' suffix.
+        $repoName = ($repoUrl.Split('/')[-1]).Replace('.git', '')
 
-    # optional fetch
-    if (-not $NoFetch) {
-      try {
-        Start-Process -FilePath git -ArgumentList @("--git-dir",$repoTemp,"fetch","--all","--prune") -NoNewWindow -PassThru -Wait -WindowStyle Hidden | Out-Null
-      } catch {
-        Write-Warning "git fetch failed for $repoName (non-fatal). Continuing."
-      }
-    }
+        Write-Host "Processing repository: $repoName" -ForegroundColor Yellow
 
-    # Run git log with unit separator (0x1F) between fields; date format dd-mm-yyyy
-    # Format: %h%x1f%an%x1f%ad%x1f%s
-    $gitLogArgs = @("--git-dir",$repoTemp,"log","--all","--date=format:%d-%m-%Y","--pretty=format:%h%x1f%an%x1f%ad%x1f%s")
-    try {
-      $outputLines = & git @gitLogArgs 2>$null
-    } catch {
-      Write-Warning "git log failed for $repoName. Skipping."
-      continue
-    }
-
-    if ($outputLines) {
-      foreach ($line in $outputLines) {
-        # split on ASCII 31 (unit separator)
-        $parts = $line -split ([char]31)
-
-        # ensure we have 4 fields; if not, pad
-        while ($parts.Count -lt 4) { $parts += "" }
-
-        # escape double quotes by doubling them (CSV escaping)
-        for ($i = 0; $i -lt $parts.Count; $i++) {
-          $parts[$i] = $parts[$i] -replace '"','""'
+        # Clean up the temporary directory from a previous run, just in case.
+        if (Test-Path $tempCloneDir) {
+            Remove-Item -Recurse -Force $tempCloneDir
         }
 
-        # prepare CSV line with repo prefix
-        $csvLine = '"{0}","{1}","{2}","{3}","{4}"' -f $repoName, $parts[0], $parts[1], $parts[2], $parts[3]
+        # Clone the repository. Using --bare is faster as it doesn't check out the files.
+        git clone --bare $repoUrl $tempCloneDir | Out-Null
 
-        # append to file
-        $csvLine | Out-File -FilePath $OutFile -Encoding UTF8 -Append
-      }
-    } else {
-      Write-Host "  (no commits found or empty repo) $repoName"
-    }
+        # Run the git log command. We use --git-dir to point to our bare clone.
+        # The output is captured into a variable.
+        $logOutput = & git --git-dir=$tempCloneDir log --all --decorate --oneline --graph --pretty=format:"%h %an %ad %s"
 
-    # Remove bare clone directory to free space
-    try {
-      Remove-Item -LiteralPath $repoTemp -Recurse -Force -ErrorAction SilentlyContinue
+        # Process each line of the log output.
+        $prefixedOutput = $logOutput | ForEach-Object {
+            # Add the repository name as a prefix to each line.
+            "$repoName: $_"
+        }
+
+        # Append the prefixed log lines to our main output file.
+        $prefixedOutput | Add-Content -Path $outputFile
+
     } catch {
-      Write-Warning "Failed to remove temp clone $repoTemp (you can remove it manually)."
+        # Handle any errors during clone or log extraction.
+        Write-Host "❌ Failed to process '$repoUrl'. Error: $($_.Exception.Message)" -ForegroundColor Red
+    } finally {
+        # IMPORTANT: Clean up by deleting the temporary repo directory.
+        if (Test-Path $tempCloneDir) {
+            Remove-Item -Recurse -Force $tempCloneDir
+        }
     }
-  }
-
-  Write-Host "Done. Combined CSV: $OutFile"
-}
-finally {
-  # cleanup temp root
-  try { Remove-Item -LiteralPath $TempRoot -Recurse -Force -ErrorAction SilentlyContinue } catch {}
 }
 
-
-.\Collect-GitLogsFromUrls.ps1 -UrlsFile .\repos.txt -ShallowDepth 100
+Write-Host "✅ All done! Logs have been saved to '$outputFile'." -ForegroundColor Green
+Read-Host "Press Enter to exit"
