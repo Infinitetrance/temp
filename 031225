@@ -1,0 +1,36 @@
+<dependency>
+    <groupId>eu.agno3.jcifs</groupId>
+    <artifactId>jcifs-ng</artifactId>
+    <version>2.1.9</version>
+</dependency>
+
+import jcifs.CIFSContext;
+import jcifs.context.BaseContext;
+import jcifs.smb.NtlmPasswordAuthentication;
+import jcifs.smb.SmbFile;
+import jcifs.smb.SmbFileInputStream;
+
+public class ReadRemoteFile {
+    public static void main(String[] args) throws Exception {
+
+        // Authentication
+        CIFSContext base = new BaseContext();
+        CIFSContext auth = base.withCredentials(
+            new NtlmPasswordAuthentication(
+                "DOMAIN",       // Domain or null
+                "UserName",     // Username
+                "Password"      // Password
+            )
+        );
+
+        // SMB path (convert \\SERVER\Share\file.txt to smb://SERVER/Share/file.txt)
+        String smbPath = "smb://SERVER/Share/file.txt";
+
+        SmbFile remoteFile = new SmbFile(smbPath, auth);
+
+        try (SmbFileInputStream in = new SmbFileInputStream(remoteFile)) {
+            byte[] data = in.readAllBytes();
+            System.out.println(new String(data));
+        }
+    }
+}
